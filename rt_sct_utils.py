@@ -51,12 +51,6 @@ class RT_SCT(object):
                         continue
                     
                     for _gi in range(gscat['hops'].shape[0]):
-                        
-#                         print(gscat['gran'])
-#                         print("***************")
-#                         print((gscat['r'] -  6370.)/1000.)
-#                         print("--------------")
-#                         print(gscat['th']*6370.)
                     
                         sct_el_arr.append(_el)                        
                         sct_alt_arr.append((gscat['r'][_gi] -  6370.)/1000.) #  6370.0 is Rav

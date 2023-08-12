@@ -2,6 +2,8 @@ from matplotlib.transforms import Affine2D, Transform
 import mpl_toolkits.axisartist.floating_axes as floating_axes
 from matplotlib.projections import polar
 from mpl_toolkits.axisartist.grid_finder import FixedLocator, DictFormatter
+from matplotlib.collections import LineCollection
+from matplotlib.dates import date2num, DateFormatter
 
 from mpl_toolkits.axes_grid1 import SubplotDivider, Size
 from mpl_toolkits.axes_grid1.mpl_axes import Axes
@@ -144,15 +146,15 @@ class RayPathPlot(object):
         """
         
         if ground:
-            for _el in rto.scatter.gsc[date_plot][plot_beam].keys():
-                gscat = rto.scatter.gsc[date_plot][plot_beam][_el]
+            for _el in rto.scatter.gsc[plot_time][plot_beam].keys():
+                gscat = rto.scatter.gsc[plot_time][plot_beam][_el]
                 if gscat is not None:
-                    self.aux_ax.scatter(gscat['th'], ax.Re*numpy.ones(gscat['th'].shape), 
+                    self.aux_ax.scatter(gscat['th'], self.ax1.Re*numpy.ones(gscat['th'].shape), 
                                     color='k', zorder=10)
         
         if iono:
-            for _el in rto.scatter.isc[date_plot][plot_beam].keys():
-                ionos = rto.scatter.isc[date_plot][plot_beam][_el]
+            for _el in rto.scatter.isc[plot_time][plot_beam].keys():
+                ionos = rto.scatter.isc[plot_time][plot_beam][_el]
 
                 if ionos['nstp'] <= 0:
                     continue
