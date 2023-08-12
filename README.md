@@ -4,4 +4,4 @@ The module has been updated to use [IRI-2020](https://irimodel.org/).
 
 The raytracing methodology and implementation has been discussed in [Sebastien's dissertation](https://www.proquest.com/openview/4d451048aa7bc1dd6cb49e0f7230d814/1?pq-origsite=gscholar&cbl=18750).
 
-Run the `make` command to get started!!
+Run the `make` command to get started!!![rt](https://github.com/bharatreddy/raydarn/assets/1437302/afa72db3-9c06-4b2e-b139-5104847ede86)
