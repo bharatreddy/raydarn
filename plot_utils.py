@@ -21,8 +21,10 @@ class RayPathPlot(object):
     Inspired/Copied from the code in DaViTPy
     """
         
-    def __init__(self, rect=111, fig=None, minground=0., maxground=2000, minalt=0,
-                        maxalt=500, Re=6371., nyticks=5, nxticks=4):
+    def __init__(self, rto, plot_time, plot_beam,
+                 rect=111, fig=None, minground=0.,
+                 maxground=2000, minalt=0,maxalt=500,
+                 Re=6371., nyticks=5, nxticks=4):
         """
         Create curved axes in ground-range and altitude
         """
@@ -82,13 +84,15 @@ class RayPathPlot(object):
         # but this has a side effect that the patch is drawn twice, and possibly
         # over some other artists. So, we decrease the zorder a bit to prevent this.
         self.ax1.patch.zorder=0.9
+        self.rto = rto
+        self.plot_time = plot_time
+        self.plot_beam = plot_beam
 
-#         return ax1, aux_ax
-
-    def add_cbar(self, mappable):
+    def add_cbar(self):
         """ 
         Append colorbar to axes
         """
+        mappable = self.edens_im
         fig1 = self.ax1.get_figure()
         divider = SubplotDivider(fig1, *self.ax1.get_geometry(), aspect=True)
 
@@ -115,21 +119,32 @@ class RayPathPlot(object):
 
         _ = plt.colorbar(mappable, cax=self.cbax)
 
-#         return self.cbax
+    
+    def plot_edens(self, cmap="cividis"):
+        """
+        Plot background electron densities
+        """
+        self.rto.read_edens()
+        edenstht = self.rto.ionos.edens[self.plot_time][self.plot_beam]['th']
+        edensArr = self.rto.ionos.edens[self.plot_time][self.plot_beam]['nel']
+        X, Y = numpy.meshgrid(edenstht, self.ax1.Re + numpy.linspace(60,560,250))
+        self.edens_im = self.aux_ax.pcolormesh(X, Y,  edensArr, cmap=cmap)
 
-    def plot_rays(self, rdict, plot_time, plot_beam, add_ranges=True):
+    def plot_rays(self, add_ranges=True):
         """ 
         Plot rays
         """
-        for _el in rdict[plot_time][plot_beam].keys():
-            rays = rdict[plot_time][plot_beam][_el]
+        self.rto.read_rays()
+        rdict = self.rto.rays.paths
+        for _el in rdict[self.plot_time][self.plot_beam].keys():
+            rays = rdict[self.plot_time][self.plot_beam][_el]
             self.aux_ax.plot(rays['th'], numpy.array(rays['r'])*1e-3, c='#9658B1', 
                                     zorder=8, linewidth=1.)
         if add_ranges:
             range_markers = [0] + list(numpy.arange(180, 5000, 225))
             x, y = [], []
-            for _el in rdict[plot_time][plot_beam].keys():
-                rays = rdict[plot_time][plot_beam][_el]
+            for _el in rdict[self.plot_time][self.plot_beam].keys():
+                rays = rdict[self.plot_time][self.plot_beam][_el]
                 grans = numpy.array(rays['gran'])*1e-3
                 th = numpy.array(rays['th'])
                 r = numpy.array(rays['r'])
@@ -140,21 +155,21 @@ class RayPathPlot(object):
                         y.append( r[inds][0]*1e-3 )
                 self.aux_ax.scatter(x, y, color="darkgray",s=0.25, zorder=9, alpha=0.4)
                 
-    def plot_scatter(self, rto, plot_time, plot_beam, ground=True,iono=True):
+    def plot_scatter(self, ground=True,iono=True):
         """ 
         Plot gnd and iono scatter
         """
-        
+        self.rto.read_scatter()
         if ground:
-            for _el in rto.scatter.gsc[plot_time][plot_beam].keys():
-                gscat = rto.scatter.gsc[plot_time][plot_beam][_el]
+            for _el in self.rto.scatter.gsc[self.plot_time][self.plot_beam].keys():
+                gscat = self.rto.scatter.gsc[self.plot_time][self.plot_beam][_el]
                 if gscat is not None:
                     self.aux_ax.scatter(gscat['th'], self.ax1.Re*numpy.ones(gscat['th'].shape), 
                                     color='k', zorder=10)
         
         if iono:
-            for _el in rto.scatter.isc[plot_time][plot_beam].keys():
-                ionos = rto.scatter.isc[plot_time][plot_beam][_el]
+            for _el in self.rto.scatter.isc[self.plot_time][self.plot_beam].keys():
+                ionos = self.rto.scatter.isc[self.plot_time][self.plot_beam][_el]
 
                 if ionos['nstp'] <= 0:
                     continue
@@ -172,3 +187,92 @@ class RayPathPlot(object):
                 _ = lcol.set_color('k')
                 self.aux_ax.add_collection( lcol )
         
+
+class RTIPlot(object):
+    """
+    Make RTI plots of GS and IS estimated using raytracing.
+    """
+    def __init__(self, rto, fig, ax, start_time=None,
+                 end_time=None, cmap="viridis",
+                ylabel="Range [Km]",xlabel="UT HOUR"):
+        """
+        Create curved axes in ground-range and altitude
+        """
+        import rt_sct_utils
+        self.sct_obj = rt_sct_utils.RT_SCT(rto)
+        self.start_time = None
+        self.end_time = None
+        if start_time is not None:
+            self.start_time = start_time
+        if end_time is not None:
+            self.end_time = end_time
+        self.ax= ax
+        self.cmap=cmap
+        self.ylabel = ylabel
+        self.xlabel = xlabel
+        self.fig = fig
+    
+    def plot_scatter(self,plot_param = "lag_power", vmin=-30.,
+                vmax=0., ground=True, iono=True, colorbar=True):
+        """
+        Plot the scatter in an RTI-like format!!
+        """
+        if iono:
+            iono_df = self.sct_obj.get_iono_sct_df()
+            if iono_df.shape[0] > 0:
+                iono_plot_df = iono_df[ ["date", "range",\
+                            plot_param] ].pivot( "date", "range" )
+                if self.start_time is not None:
+                    iono_plot_df = iono_plot_df[iono_plot_df["date"] >= self.start_time]
+                if self.end_time is not None:
+                    iono_plot_df = iono_plot_df[iono_plot_df["date"] <= self.end_time]
+
+                iono_time_vals = iono_plot_df.index.values
+                iono_range_vals = iono_plot_df.columns.levels[1].values
+                iono_time_cntr, iono_rng_cntr  = numpy.meshgrid( iono_time_vals, iono_range_vals )
+                # Mask the nan values! pcolormesh can't handle them well!
+                iono_pwr_vals = numpy.ma.masked_where(\
+                                numpy.isnan(iono_plot_df[plot_param].values),\
+                                iono_plot_df[plot_param].values)
+                iono_rti_plot = self.ax.pcolormesh(iono_time_cntr.T , iono_rng_cntr.T,\
+                                        iono_pwr_vals, cmap=self.cmap, vmin=vmin,vmax=vmax)
+            else:
+                iono_rti_plot = None
+                print("No Ionospheric scatter identified!")
+        
+        if ground:
+            gnd_df = self.sct_obj.get_gnd_sct_df()
+            if gnd_df.shape[0] > 0:
+                gnd_plot_df = gnd_df[ ["date", "range",\
+                            plot_param] ].pivot( "date", "range" )
+                if self.start_time is not None:
+                    gnd_plot_df = gnd_plot_df[gnd_plot_df["date"] >= self.start_time]
+                if self.end_time is not None:
+                    gnd_plot_df = gnd_plot_df[gnd_plot_df["date"] <= self.end_time]
+
+                gnd_time_vals = gnd_plot_df.index.values
+                gnd_range_vals = gnd_plot_df.columns.levels[1].values
+                gnd_time_cntr, gnd_rng_cntr  = numpy.meshgrid( gnd_time_vals, gnd_range_vals )
+                # Mask the nan values! pcolormesh can't handle them well!
+                gnd_pwr_vals = numpy.ma.masked_where(\
+                                numpy.isnan(gnd_plot_df[plot_param].values),\
+                                gnd_plot_df[plot_param].values)
+                gnd_rti_plot = self.ax.pcolormesh(gnd_time_cntr.T , gnd_rng_cntr.T, gnd_pwr_vals,\
+                                        cmap=self.cmap, vmin=vmin,vmax=vmax)
+            else:
+                gnd_rti_plot = None
+                print("No ground scatter identified!")
+        # set the axes parameters
+#         self.ax.get_xaxis().set_major_formatter(DateFormatter('%H'))
+#         self.ax.set_ylabel(self.ylabel)
+#         self.ax.set_xlabel(self.xlabel)
+#         self.ax.set_title(date_plot.strftime("%Y-%m-%d"))
+#         self.ax.tick_params(axis='x', rotation=45)
+        if colorbar:
+            if gnd_rti_plot:
+                self.cb = self.fig.colorbar(gnd_rti_plot)
+                self.cb.set_label("Relative power [dB]")
+            else:
+                if iono_rti_plot:
+                    self.cb = self.fig.colorbar(iono_rti_plot)
+                    self.cb.set_label("Relative power [dB]")

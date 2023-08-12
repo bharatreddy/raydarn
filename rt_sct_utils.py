@@ -17,6 +17,7 @@ class RT_SCT(object):
         rt_dict is obtained by running the RayTrace Class!
         """
         self.rt_obj = rt_obj
+        self.rt_obj.read_scatter()
         self.max_gates = max_gates
         self.ranges = 180 + 45*numpy.arange(max_gates+1,dtype=numpy.int)
         self.pd_cut_ranges = 180 + 45*numpy.arange(max_gates+2,dtype=numpy.int)
@@ -76,7 +77,6 @@ class RT_SCT(object):
                                         labels=self.ranges
                                         )
                 _hop_bin_df = _hop_el_df.groupby(['binned']).mean().fillna(-1)
-
                 _gates = list(numpy.arange(self.max_gates+1,dtype=numpy.int))
                 _dates = [_dt for x in range(len(list(bins)))]
                 _azims = [_az for x in range(len(list(bins)))]
@@ -213,8 +213,8 @@ class RT_SCT(object):
                 
                 # Note the numbers of bins is one less
                 # than the lag_power, since we are getting
-                # a histogram. So When onverting to a DF we'll
-                # need an additional element in the rage!
+                # a histogram. So When converting to a DF we'll
+                # need an additional element in the range!
                 
                 _gates = list(numpy.arange(1,self.max_gates+1,dtype=numpy.int))# 
                 _dates = [_d for x in range(lag_power.shape[0])]

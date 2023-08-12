@@ -119,12 +119,12 @@ class RtRun(object):
             self.radar = radar_code
             # Use pydarn for getting hdw data
             site_data = pydarn.read_hdw_file(radar_code)
-            self.boresite = site_data.boresight#boresight
+            self.boresite = site_data.boresight.physical#boresight
             self.nbeams = site_data.beams#beams
             self.ngates = site_data.beams
             self.geolat = site_data.geographic.lat
             self.geolon = site_data.geographic.lon
-            self.beam_sep = site_data.beam_seperation
+            self.beam_sep = site_data.beam_separation
             self.offset = self.nbeams/2. - 0.5
             
             self.site = Site(radar_code, self.boresite,\
@@ -138,6 +138,7 @@ class RtRun(object):
                                 beam - self.offset\
                                 )*self.beam_sep,2\
                         )
+#                 az = round(self.boresite + (beam - self.offset)*self.beam_sep,2)
                 azim = (az, az, 1)
             else:
                 az1 = round(\
@@ -436,7 +437,7 @@ class Edens(object):
 
         # Read binary file
         with open(self.read_from, 'rb') as f:
-            print(self.read_from + ' header: ')
+#             print(self.read_from + ' header: ')
             self.header = _read_header(f)
             self.edens = {}
             while True:
@@ -529,7 +530,7 @@ class Scatter(object):
 
         with open(self.read_gs_from, 'rb') as f:
             # read header
-            print(self.read_gs_from + ' header: ')
+#             print(self.read_gs_from + ' header: ')
             self.header = _read_header(f)
 
             scatter_list = []
@@ -606,7 +607,7 @@ class Scatter(object):
 
         with open(self.read_is_from, 'rb') as f:
             # read header
-            print(self.read_is_from+' header: ')
+#             print(self.read_is_from+' header: ')
             self.header = _read_header(f)
             # Then read ray data, one ray at a time
             while True:
@@ -755,7 +756,7 @@ class Rays(object):
         # Read binary file
         with open(self.read_from, 'rb') as f:
             # read header
-            print(self.read_from+' header: ')
+#             print(self.read_from+' header: ')
             self.header = _read_header(f)
             # Then read ray data, one ray at a time
             while True:
