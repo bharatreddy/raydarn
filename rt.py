@@ -1,27 +1,12 @@
-# Copyright (C) 2012  VT SuperDARN Lab
-# Full license can be found in LICENSE.txt
-"""Ray-tracing raydarn module
-
-This module runs the raytracing code
-
-Classes
--------------------------------------------------------
-rt.RtRun    run the code
-rt.Scatter  store and process modeled backscatter
-rt.Edens    store and process electron density profiles
-rt.Rays     store and process individual rays
--------------------------------------------------------
-
-Notes
------
-The ray tracing requires mpi to run. You can adjust the number of processors, but
-be wise about it and do not assign more than you have
+"""
+Python wrapper for the Fortran raytracing code!
+This version is adapted from a previous one in DaViTPy
 
 """
 import numpy as np
 import pandas as pd
 
-#import pydarn
+import pydarn
 
 
 #########################################################################
@@ -32,11 +17,11 @@ class RtRun(object):
 
     Parameters
     ----------
-    sTime : Optional[datetime.datetime]
+    start_time : Optional[datetime.datetime]
         start time UT
-    eTime : Optional[datetime.datetime]
-        end time UT (if not provided run for a single time sTime)
-    rCode : Optional[str]
+    end_time : Optional[datetime.datetime]
+        end time UT (if not provided run for a single time start_time)
+    radar_code : Optional[str]
         radar 3-letter code
     dTime : Optional[float]
         time step in Hours
@@ -85,7 +70,7 @@ class RtRun(object):
 
     nmf2 : float
 
-    outDir :
+    out_dir :
 
     fExt : 
 
@@ -95,20 +80,20 @@ class RtRun(object):
 
     Methods
     -------
-    RtRun.readRays
-    RtRun.readEdens
-    RtRun.readScatter
+    RtRun.read_rays
+    RtRun.read_edens
+    RtRun.read_scatter
     RtRun.save
     RtRun.load
 
     Example
     -------
         # Run a 2-hour ray trace from Blackstone on a random day
-        sTime = dt.datetime(2012, 11, 18, 5)
-        eTime = sTime + dt.timedelta(hours=2)
+        start_time = dt.datetime(2012, 11, 18, 5)
+        end_time = start_time + dt.timedelta(hours=2)
         radar = 'bks'
         # Save the results to your /tmp directory
-        rto = raydarn.RtRun(sTime, eTime, rCode=radar, outDir='/tmp')
+        rto = raydarn.RtRun(start_time, end_time, radar_code=radar, out_dir='/tmp')
 
     """
     def __init__(self, 
@@ -116,46 +101,33 @@ class RtRun(object):
         gates = 110, geographic_lat = 37.1,
         geographic_lon = -77.95,
         beam_seperation = 3.24,
-        sTime=None, eTime=None, 
-        rCode=None, radarObj=None, 
+        start_time=None, end_time=None, 
+        radar_code=None, 
         dTime=1., 
         freq=11, beam=None, nhops=1, 
         elev=(5, 60, .1), azim=None, 
         hmf2=None, nmf2=None, 
-        outDir=None, 
+        out_dir=None, 
         fext=None, 
         loadFrom=None, 
-        edens_file=None,
-        nprocs=4, use_alt_beams=True):
+        nprocs=4, use_alt_beams=False):
         
         import datetime as dt
         from os import path
 
-        # Load pickled instance...
-        if loadFrom:
-            self.load(loadFrom)
-        # ...or get to work!
-        else:
-            # Load radar info
-            if radarObj:
-                self.radar = rCode#radarObj
-            elif rCode:
-                self.radar = rCode#radar.radar(code=rCode)
-            # new pydarn lib for radar details
-            
-            # we'll not use pydarn for now!
-#             self.site_data = pydarn.read_hdw_file(rCode)
-            # we'll not use pydarn for now!
-            
-            self.boresite = boresight
-            self.nbeams = beams
-            self.ngates = gates
-            self.geolat = geographic_lat
-            self.geolon = geographic_lon
-            self.beam_sep = beam_seperation
+        if radar_code:
+            self.radar = radar_code
+            # Use pydarn for getting hdw data
+            site_data = pydarn.read_hdw_file(radar_code)
+            self.boresite = site_data.boresight#boresight
+            self.nbeams = site_data.beams#beams
+            self.ngates = site_data.beams
+            self.geolat = site_data.geographic.lat
+            self.geolon = site_data.geographic.lon
+            self.beam_sep = site_data.beam_seperation
             self.offset = self.nbeams/2. - 0.5
             
-            self.site = Site(rCode, self.boresite,\
+            self.site = Site(radar_code, self.boresite,\
                              self.nbeams, self.ngates,\
                              self.geolat, self.geolon,\
                              self.beam_sep)
@@ -182,62 +154,46 @@ class RtRun(object):
                     azim = (az1, az2, self.site.beam_sep*2.)
                 else:
                     azim = (az1, az2, self.site.beam_sep)
-#             print(self.boresite, self.offset, self.beam_sep, self.nbeams)
-            
             # Set azimuth
             self.azim = azim
             self.beam = beam
-
             # Set elevation
             self.elev = elev
-
             # Set time interval
-            if not sTime: 
+            if not start_time: 
                 print('No start time. Using now.')
-                sTime = dt.datetime.utcnow()
-            if not eTime:
-                eTime = sTime + dt.timedelta(minutes=1)
-            if eTime > sTime + dt.timedelta(days=1):
+                start_time = dt.datetime.utcnow()
+            if not end_time:
+                end_time = start_time + dt.timedelta(minutes=1)
+            if end_time > start_time + dt.timedelta(days=1):
                 print('The time interval requested if too large. Reducing to 1 day.')
-                eTime = sTime + dt.timedelta(days=1)
-            self.time = [sTime, eTime]
+                end_time = start_time + dt.timedelta(days=1)
+            self.time = [start_time, end_time]
             self.dTime = dTime
-
             # Set frequency
             self.freq = freq
-
             # Set number of hops
             self.nhops = nhops
-
             # Set ionosphere
             self.hmf2 = hmf2 if hmf2 else 0
             self.nmf2 = nmf2 if nmf2 else 0
-
             # Set output directory and file extension
-            if not outDir:
-                 outDir = rcParams['DAVIT_TMPDIR']
-#                outDir = path.abspath( path.curdir )
-            self.outDir = path.join( outDir, '' )
+            if not out_dir:
+                print("out_dir not set by user. Setting it to '/tmp'")
+                out_dir = "/tmp"
+            self.out_dir = path.join( out_dir, '' )
             if fext is None:
-                self.fExt = sTime.strftime("%Y%j") +\
+                self.fExt = start_time.strftime("%Y%j") +\
                         "_" + str(freq)
             else:
                 self.fExt = fext
 
-            # Set DaViTpy Install path
-#             self.davitpy_path = rcParams['DAVITPY_PATH']
-
-            # Set user-supplied electron density profile
-            if edens_file is not None:
-                self.edens_file = edens_file
-
             # Write input file
-            inputFile = self._genInput()
-            
+            input_file = self._gen_input()
             # Run the ray tracing
-            success = self._execute(nprocs, inputFile)
+            success = self._execute(nprocs, input_file)
         
-    def _genInput(self):
+    def _gen_input(self):
         """Generate input file
 
         Returns
@@ -247,7 +203,7 @@ class RtRun(object):
         """
         from os import path
 
-        fname = path.join(self.outDir, 'rtrun.{}.inp'.format(self.fExt))
+        fname = path.join(self.out_dir, 'rtrun.{}.inp'.format(self.fExt))
         with open(fname, 'w') as f:
             f.write( "{:8.2f}  Transmitter latitude (degrees N)\n".format( self.geolat  ) )
             f.write( "{:8.2f}  Transmitter Longitude (degrees E)\n".format( self.geolon ) )
@@ -285,23 +241,23 @@ class RtRun(object):
         """
         import glob
         import os
-        file_list = glob.glob(self.outDir + "/*dat")
+        file_list = glob.glob(self.out_dir + "/*dat")
         for _fp in file_list:
             os.remove(_fp)
-        file_list = glob.glob(self.outDir + "/*inp*")
+        file_list = glob.glob(self.out_dir + "/*inp*")
         for _fp in file_list:
             os.remove(_fp)
         
         
 
-    def _execute(self, nprocs, inputFileName):
+    def _execute(self, nprocs, input_fileName):
         """Execute raytracing command
 
         Parameters
         ----------
         nprocs : int
             number of processes to use with MPI
-        inputFilename : str
+        input_filename : str
 
         """
         import subprocess as subp
@@ -309,42 +265,37 @@ class RtRun(object):
 
         command = ['mpiexec', '-n', '{}'.format(nprocs), 
             path.join(path.abspath( __file__.split('rt.py')[0] ), 'rtFort'), 
-            inputFileName, 
-            self.outDir, 
+            input_fileName, 
+            self.out_dir, 
             self.fExt]
 #         print(command)
         #print ' '.join(command)
         process = subp.Popen(command, shell=False, stdout=subp.PIPE, stderr=subp.STDOUT)
         output = process.communicate()[0]
         exitCode = process.returncode
-#         print("here")
-#         print(inputFileName)
-#         print(self.outDir, self.fExt)
 
         if (exitCode != 0):
             print('In:: {}'.format( command ))
             print('Exit code:: {}'.format( exitCode ))
             print('Returned:: \n' + output.decode('utf-8'))
-#         print('Exit code:: {}'.format( exitCode ))
 
-        print('In:: {}'.format( command ))
-        print('Exit code:: {}'.format( exitCode ))
-        print('Returned:: \n' + output.decode('utf-8'))
+#         print('In:: {}'.format( command ))
+#         print('Exit code:: {}'.format( exitCode ))
+#         print('Returned:: \n' + output.decode('utf-8'))
 
         
         if (exitCode != 0):
             raise Exception('Fortran execution error.')
         else:
-#            subp.call(['rm',inputFileName])
             return True
 
 
-    def readRays(self, saveToAscii=None):
+    def read_rays(self, save_to_ascii=None):
         """Read rays.dat fortran output into dictionnary
 
         Parameters
         ----------
-        saveToAscii : Optional[str]
+        save_to_ascii : Optional[str]
             output content to text file
 
         Returns
@@ -356,7 +307,7 @@ class RtRun(object):
         from os import path
 
         # File name and path
-        fName = path.join(self.outDir, 'rays.{}.dat'.format(self.fExt))
+        fName = path.join(self.out_dir, 'rays.{}.dat'.format(self.fExt))
         if hasattr(self, 'rays') and not path.exists(fName):
             print('The file is gone, and it seems you may already have read it into memory...?')
             return
@@ -364,12 +315,12 @@ class RtRun(object):
         # Initialize rays output
         self.rays = Rays(fName, 
             site=self.site, radar=self.radar,
-            saveToAscii=saveToAscii)
+            save_to_ascii=save_to_ascii)
         # Remove Input file
 #        subp.call(['rm',fName])
 
 
-    def readEdens(self):
+    def read_edens(self):
         """Read edens.dat fortran output
 
         Parameters
@@ -385,7 +336,7 @@ class RtRun(object):
         from os import path
 
         # File name and path
-        fName = path.join(self.outDir, 'edens.{}.dat'.format(self.fExt))
+        fName = path.join(self.out_dir, 'edens.{}.dat'.format(self.fExt))
         if hasattr(self, 'ionos') and not path.exists(fName):
             print('The file is gone, and it seems you may already have read it into memory...?')
             return
@@ -397,7 +348,7 @@ class RtRun(object):
 #        subp.call(['rm',fName])
 
 
-    def readScatter(self):
+    def read_scatter(self):
         """Read iscat.dat and gscat.dat fortran output
 
         Parameters
@@ -413,12 +364,12 @@ class RtRun(object):
         from os import path
 
         # File name and path
-        isName = path.join(self.outDir, 'iscat.{}.dat'.format(self.fExt))
-        gsName = path.join(self.outDir, 'gscat.{}.dat'.format(self.fExt))
+        isName = path.join(self.out_dir, 'iscat.{}.dat'.format(self.fExt))
+        gsName = path.join(self.out_dir, 'gscat.{}.dat'.format(self.fExt))
         if hasattr(self, 'scatter') \
             and (not path.exists(isName) \
             or not path.exists(gsName)):
-            print('The files are gone, and it seems you may already have read them into memory...?')
+            print('The files are gone!!!')
             return
 
         # Initialize rays output
@@ -438,12 +389,12 @@ class Edens(object):
 
     Parameters
     ----------
-    readFrom : str
+    read_from : str
         edens.dat file to read the rays from
 
     Attributes
     ----------
-    readFrom : str
+    read_from : str
 
     edens : dict
 
@@ -451,13 +402,13 @@ class Edens(object):
 
     Methods
     -------
-    Edens.readEdens
+    Edens.read_edens
     Edens.plot
 
     """
-    def __init__(self, readFrom, 
+    def __init__(self, read_from, 
         site=None, radar=None):
-        self.readFrom = readFrom
+        self.read_from = read_from
         self.edens = {}
 
         self.name = ''
@@ -465,10 +416,10 @@ class Edens(object):
             self.name = radar#.code[0].upper()
 
         # Read rays
-        self.readEdens(site=site)
+        self.read_edens(site=site)
 
 
-    def readEdens(self, site=None):
+    def read_edens(self, site=None):
         """Read edens.dat fortran output
 
         Parameters
@@ -484,9 +435,9 @@ class Edens(object):
         from numpy import array
 
         # Read binary file
-        with open(self.readFrom, 'rb') as f:
-            print(self.readFrom + ' header: ')
-            self.header = _readHeader(f)
+        with open(self.read_from, 'rb') as f:
+            print(self.read_from + ' header: ')
+            self.header = _read_header(f)
             self.edens = {}
             while True:
                 bytes = f.read(2*4)
@@ -500,7 +451,7 @@ class Edens(object):
                 dd = self.header['mmdd'] - mm*100
                 rtime = dt.datetime(self.header['year'], mm, dd) + dt.timedelta(hours=hour)
                 # format azimuth index (beam)
-                raz = site.azimToBeam(azim) if site else round(raz, 2)
+                raz = site.azim_to_beam(azim) if site else round(raz, 2)
                 # Initialize dicts
                 if rtime not in self.edens.keys(): self.edens[rtime] = {}
                 self.edens[rtime][raz] = {}
@@ -523,16 +474,16 @@ class Scatter(object):
 
     Parameters
     ----------
-    readISFrom : Optional[str]
+    read_is_from : Optional[str]
         iscat.dat file to read the ionospheric scatter from
-    readGSFrom : Optional[str]
+    read_gs_from : Optional[str]
         gscat.dat file to read the ground scatter from
 
     Attributes
     ----------
-    readISFrom : str
+    read_is_from : str
         iscat.dat file to read the ionospheric scatter from
-    readGSFrom : str
+    read_gs_from : str
         gscat.dat file to read the ground scatter from
     gsc :
 
@@ -540,28 +491,28 @@ class Scatter(object):
 
     Methods
     -------
-    Scatter.readGS
-    Scatter.readIS
+    Scatter.read_gs
+    Scatter.read_is
     Scatter.plot
 
     """
-    def __init__(self, readGSFrom=None, readISFrom=None, 
+    def __init__(self, read_gs_from=None, read_is_from=None, 
         site=None, radar=None):
-        self.readISFrom = readISFrom
-        self.readGSFrom = readGSFrom
+        self.read_is_from = read_is_from
+        self.read_gs_from = read_gs_from
 
         # Read ground scatter
-        if self.readGSFrom:
+        if self.read_gs_from:
             self.gsc = {}
-            self.readGS(site=site)
+            self.read_gs(site=site)
 
         # Read ionospheric scatter
-        if self.readISFrom:
+        if self.read_is_from:
             self.isc = {}
-            self.readIS(site=site)
+            self.read_is(site=site)
 
 
-    def readGS(self, site=None):
+    def read_gs(self, site=None):
         """Read gscat.dat fortran output
 
         Parameters
@@ -576,10 +527,10 @@ class Scatter(object):
         import datetime as dt
         import numpy as np
 
-        with open(self.readGSFrom, 'rb') as f:
+        with open(self.read_gs_from, 'rb') as f:
             # read header
-            print(self.readGSFrom + ' header: ')
-            self.header = _readHeader(f)
+            print(self.read_gs_from + ' header: ')
+            self.header = _read_header(f)
 
             scatter_list = []
 
@@ -595,7 +546,7 @@ class Scatter(object):
                 # Read reminder of the record
                 rr, tht, gran, lat, lon, nr  = unpack('6f', f.read(6*4))
                 # Convert azimuth to beam number
-                raz = site.azimToBeam(raz) if site else np.round(raz, 2)
+                raz = site.azim_to_beam(raz) if site else np.round(raz, 2)
                 # Adjust rel to 2 decimal
                 rel = np.around(rel, 2)
                 # convert time to python datetime
@@ -636,9 +587,9 @@ class Scatter(object):
                 tmp['hops']      = ihop
                 scatter_list.append(tmp)
 
-        self.gsc_df = pd.DataFrame(scatter_list)
+#         self.gsc_df = pd.DataFrame(scatter_list)
 
-    def readIS(self, site=None):
+    def read_is(self, site=None):
         """Read iscat.dat fortran output
 
         Parameters
@@ -653,10 +604,10 @@ class Scatter(object):
         import datetime as dt
         from numpy import around, array
 
-        with open(self.readISFrom, 'rb') as f:
+        with open(self.read_is_from, 'rb') as f:
             # read header
-            print(self.readISFrom+' header: ')
-            self.header = _readHeader(f)
+            print(self.read_is_from+' header: ')
+            self.header = _read_header(f)
             # Then read ray data, one ray at a time
             while True:
                 bytes = f.read(4*4)
@@ -666,7 +617,7 @@ class Scatter(object):
                 nstp, rhr, raz, rel = unpack('4f', bytes)
                 nstp = int(nstp)
                 # Convert azimuth to beam number
-                raz = site.azimToBeam(raz) if site else around(raz, 2)
+                raz = site.azim_to_beam(raz) if site else around(raz, 2)
                 # Adjust rel to 2 decimal
                 rel = around(rel, 2)
                 # convert time to python datetime
@@ -745,15 +696,15 @@ class Rays(object):
 
     Parameters
     ----------
-    readFrom : str
+    read_from : str
         rays.dat file to read the rays from
     
-    saveToAscii : Optional[str]
+    save_to_ascii : Optional[str]
         file name where to output ray positions
 
     Attributes
     ----------
-    readFrom : str
+    read_from : str
         rays.dat file to read the rays from
     paths :
 
@@ -762,15 +713,15 @@ class Rays(object):
 
     Methods
     -------
-    Rays.readRays
-    Rays.writeToAscii
+    Rays.read_rays
+    Rays.write_to_ascii
     Rays.plot
 
     """
-    def __init__(self, readFrom, 
+    def __init__(self, read_from, 
         site=None, radar=None, 
-        saveToAscii=None):
-        self.readFrom = readFrom
+        save_to_ascii=None):
+        self.read_from = read_from
         self.paths = {}
 
         self.name = ''
@@ -778,14 +729,14 @@ class Rays(object):
             self.name = radar#.code[0].upper()
 
         # Read rays
-        self.readRays(site=site)
+        self.read_rays(site=site)
 
         # If required, save to ascii
-        if saveToAscii:
-            self.writeToAscii(saveToAscii)
+        if save_to_ascii:
+            self.write_to_ascii(save_to_ascii)
 
 
-    def readRays(self, site=None):
+    def read_rays(self, site=None):
         """Read rays.dat fortran output
 
         Parameters
@@ -802,10 +753,10 @@ class Rays(object):
         from numpy import round, array
 
         # Read binary file
-        with open(self.readFrom, 'rb') as f:
+        with open(self.read_from, 'rb') as f:
             # read header
-            print(self.readFrom+' header: ')
-            self.header = _readHeader(f)
+            print(self.read_from+' header: ')
+            self.header = _read_header(f)
             # Then read ray data, one ray at a time
             while True:
                 bytes = f.read(4*4)
@@ -815,7 +766,7 @@ class Rays(object):
                 nrstep, rhr, raz, rel = unpack('4f', bytes)
                 nrstep = int(nrstep)
                 # Convert azimuth to beam number
-                raz = site.azimToBeam(raz) if site else round(raz, 2)
+                raz = site.azim_to_beam(raz) if site else round(raz, 2)
                 # convert time to python datetime
                 rhr = rhr - 25.
                 mm = int(self.header['mmdd']/100)
@@ -839,7 +790,7 @@ class Rays(object):
                     f.read(nrstep*4)) )
 
 
-    def writeToAscii(self, fname):
+    def write_to_ascii(self, fname):
         """Save rays to ASCII file (limited use)
 
         Parameters
@@ -878,7 +829,7 @@ class Rays(object):
 #########################################################################
 # Misc.
 #########################################################################
-def _readHeader(fObj):
+def _read_header(fObj):
     """Read the header part of ray-tracing *.dat files
 
     Parameters
@@ -918,7 +869,7 @@ def _readHeader(fObj):
     return header
 
 
-def _getTitle(time, beam, header, name):
+def _get_title(time, beam, header, name):
     """Create a title for ground/altitude plots
 
     Parameters
@@ -959,9 +910,9 @@ class Site(object):
     uses davitpy, which is deprecated now. 
     Adding this for pydarn compatibility
     """
-    def __init__(self, rCode, boresite, nbeams, ngates,\
+    def __init__(self, radar_code, boresite, nbeams, ngates,\
                  geolat, geolon, beam_sep):
-        self.rCode = rCode
+        self.radar_code = radar_code
         self.boresite = boresite
         self.nbeams = nbeams
         self.ngates = ngates
@@ -970,7 +921,7 @@ class Site(object):
         self.beam_sep = beam_sep
         self.offset = nbeams/2. - 0.5
         
-    def azimToBeam(self, raz):
+    def azim_to_beam(self, raz):
         """
         convert from azim to beam number
         """

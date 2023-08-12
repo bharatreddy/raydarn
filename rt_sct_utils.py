@@ -10,7 +10,7 @@ class RT_SCT(object):
     is given in Sebastien's dissertation.
     """
     
-    def __init__(self, rt_obj, max_gates = 75):
+    def __init__(self, rt_obj, max_gates = 110):
         """
         Initialize the ray tracing params
         for a radar!
