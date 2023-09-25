@@ -6,7 +6,7 @@ LOCAL_FC = mpif90
 FC = $(LOCAL_FC)
 
 # Declare optional and required compilation flags
-OPT_FLAGS = -O2 -fbacktrace -fno-automatic
+OPT_FLAGS = -O2 -fbacktrace -fno-automatic -fallow-argument-mismatch
 #OPT_FLAGS = -Og -Wall -fbounds-check -fbacktrace -fno-automatic
 REQ_FLAGS = -w -g
 

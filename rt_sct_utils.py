@@ -19,8 +19,8 @@ class RT_SCT(object):
         self.rt_obj = rt_obj
         self.rt_obj.read_scatter()
         self.max_gates = max_gates
-        self.ranges = 180 + 45*numpy.arange(max_gates+1,dtype=numpy.int)
-        self.pd_cut_ranges = 180 + 45*numpy.arange(max_gates+2,dtype=numpy.int)
+        self.ranges = 180 + 45*numpy.arange(max_gates+1,dtype=int)
+        self.pd_cut_ranges = 180 + 45*numpy.arange(max_gates+2,dtype=int)
         
     def get_gnd_sct_df(self):
         """
@@ -76,8 +76,8 @@ class RT_SCT(object):
                                         self.pd_cut_ranges,\
                                         labels=self.ranges
                                         )
-                _hop_bin_df = _hop_el_df.groupby(['binned']).mean().fillna(-1)
-                _gates = list(numpy.arange(self.max_gates+1,dtype=numpy.int))
+                _hop_bin_df = _hop_el_df.groupby(['binned'], observed=False).mean().fillna(-1)
+                _gates = list(numpy.arange(self.max_gates+1,dtype=int))
                 _dates = [_dt for x in range(len(list(bins)))]
                 _azims = [_az for x in range(len(list(bins)))]
                 _elevs = [_hop_bin_df.loc[x]['ele'] for x in bins]
@@ -103,7 +103,7 @@ class RT_SCT(object):
         if gnd_sct_df.shape[0] >= 1:
             gnd_sct_df['day'] = gnd_sct_df['date'].dt.date
             max_power_df = gnd_sct_df[['day', 'lag_power']].groupby(\
-                                            ['day']\
+                                            ['day'], observed=False\
                                             ).max().reset_index()
             max_power_df.columns = ['day', 'max_lag_power']
             gnd_sct_df = pandas.merge(gnd_sct_df, max_power_df, on=['day'])
@@ -172,7 +172,7 @@ class RT_SCT(object):
             # lag_power and it has a different length
             # compared to the group ranges.
             max_wght_df = iono_sct_df[['day', 'weights']].groupby(\
-                                    ['day']\
+                                    ['day'], observed=False\
                                     ).max().reset_index()
             max_wght_df.columns = ['day', 'max_weights']
             iono_sct_df = pandas.merge(iono_sct_df, max_wght_df, on=['day'])
@@ -191,8 +191,8 @@ class RT_SCT(object):
             fin_df_arr = []
 
             max_gates = 75
-            grps = iono_sct_df.groupby(["date", "azim"])
-            ranges = 180 + 45*numpy.arange(75+1,dtype=numpy.int)
+            grps = iono_sct_df.groupby(["date", "azim"], observed=False)
+            ranges = 180 + 45*numpy.arange(75+1,dtype=int)
             addtnl_range = numpy.max(ranges) + 45
             for _d, _az in list(grps.indices.keys()):
                 sel_df = iono_sct_df[ (iono_sct_df["date"] == _d) & (iono_sct_df["azim"] == _az) ]
@@ -204,19 +204,21 @@ class RT_SCT(object):
 #                 _hop_el_alt_df = pandas.DataFrame(list(zip(sct_el_arr, sct_hops_arr, grp_ran)),
 #                                    columns =['ele', 'hops', 'grp_ran'])
                 _hop_el_alt_df = sel_df[['median_elev', 'hop', 'median_alt', 'ref_ind','grp_ran']]
+                # Suppress false positive warning
+                pandas.options.mode.chained_assignment = None
                 _hop_el_alt_df['binned'] = pandas.cut(\
                                         _hop_el_alt_df['grp_ran'],\
                                         self.pd_cut_ranges,\
                                         labels=self.ranges
                                         )
-                _hop_bin_df = _hop_el_alt_df.groupby(['binned']).mean().fillna(-1)
+                _hop_bin_df = _hop_el_alt_df.groupby(['binned'], observed=False).mean().fillna(-1)
                 
                 # Note the numbers of bins is one less
                 # than the lag_power, since we are getting
                 # a histogram. So When converting to a DF we'll
                 # need an additional element in the range!
                 
-                _gates = list(numpy.arange(1,self.max_gates+1,dtype=numpy.int))# 
+                _gates = list(numpy.arange(1,self.max_gates+1,dtype=int))# 
                 _dates = [_d for x in range(lag_power.shape[0])]
                 _ranges = list(self.ranges[:-1])
                 _azims = [_az for x in range(len(list(bins)))]
@@ -238,11 +240,10 @@ class RT_SCT(object):
 
             iono_df["day"] = iono_df["date"].dt.date
             max_power_df = iono_df[['day', 'lag_power']].groupby(\
-                                            ['day']\
+                                            ['day'], observed=False\
                                             ).max().reset_index()
             max_power_df.columns = ['day', 'max_lag_power']
             iono_df = pandas.merge(iono_df, max_power_df, on=['day'])
-
             iono_df['lag_power'] = 10.*numpy.log10(\
                                     iono_df['lag_power']/iono_df['max_lag_power']\
                                     )

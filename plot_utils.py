@@ -94,7 +94,7 @@ class RayPathPlot(object):
         """
         mappable = self.edens_im
         fig1 = self.ax1.get_figure()
-        divider = SubplotDivider(fig1, *self.ax1.get_geometry(), aspect=True)
+        divider = SubplotDivider(fig1, 1,1,1, aspect=True)
 
         # axes for colorbar
         self.cbax = Axes(fig1, divider.get_position())
@@ -220,8 +220,8 @@ class RTIPlot(object):
         if iono:
             iono_df = self.sct_obj.get_iono_sct_df()
             if iono_df.shape[0] > 0:
-                iono_plot_df = iono_df[ ["date", "range",\
-                            plot_param] ].pivot( "date", "range" )
+                iono_plot_df = iono_df[ ["date", "range", plot_param] ] \
+                                .pivot( columns="range", index="date" )
                 if self.start_time is not None:
                     iono_plot_df = iono_plot_df[iono_plot_df["date"] >= self.start_time]
                 if self.end_time is not None:
@@ -244,7 +244,7 @@ class RTIPlot(object):
             gnd_df = self.sct_obj.get_gnd_sct_df()
             if gnd_df.shape[0] > 0:
                 gnd_plot_df = gnd_df[ ["date", "range",\
-                            plot_param] ].pivot( "date", "range" )
+                            plot_param] ].pivot( columns="range", index="date" )
                 if self.start_time is not None:
                     gnd_plot_df = gnd_plot_df[gnd_plot_df["date"] >= self.start_time]
                 if self.end_time is not None:
