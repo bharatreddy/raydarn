@@ -165,31 +165,33 @@ class RayPathPlot(object):
         """
         self.rto.read_scatter()
         if ground:
-            for _el in self.rto.scatter.gsc[self.plot_time][self.plot_beam].keys():
-                gscat = self.rto.scatter.gsc[self.plot_time][self.plot_beam][_el]
-                if gscat is not None:
-                    self.aux_ax.scatter(gscat['th'], self.ax1.Re*numpy.ones(gscat['th'].shape), 
-                                    color='k', zorder=10)
+            if self.plot_time in self.rto.scatter.gsc.keys():
+                for _el in self.rto.scatter.gsc[self.plot_time][self.plot_beam].keys():
+                    gscat = self.rto.scatter.gsc[self.plot_time][self.plot_beam][_el]
+                    if gscat is not None:
+                        self.aux_ax.scatter(gscat['th'], self.ax1.Re*numpy.ones(gscat['th'].shape), 
+                                        color='k', zorder=10)
         
         if iono:
-            for _el in self.rto.scatter.isc[self.plot_time][self.plot_beam].keys():
-                ionos = self.rto.scatter.isc[self.plot_time][self.plot_beam][_el]
+            if self.plot_time in self.rto.scatter.isc.keys():
+                for _el in self.rto.scatter.isc[self.plot_time][self.plot_beam].keys():
+                    ionos = self.rto.scatter.isc[self.plot_time][self.plot_beam][_el]
 
-                if ionos['nstp'] <= 0:
-                    continue
-                t = ionos['th']
-                r = ionos['r']*1e-3
-                spts = numpy.array([t, r]).T.reshape(-1, 1, 2)
-                h = ionos['h']*1e-3
-                rel = numpy.radians( ionos['rel'] )
-                r = numpy.sqrt( r**2 + h**2 + 2*r*h*numpy.sin( rel ) )
-                t = t + numpy.arcsin( h/r * numpy.cos( rel ) )
-                epts = numpy.array([t, r]).T.reshape(-1, 1, 2)
-                segments = numpy.concatenate([spts, epts], axis=1)
-                lcol = LineCollection( segments, zorder=10,linewidths=5. )
+                    if ionos['nstp'] <= 0:
+                        continue
+                    t = ionos['th']
+                    r = ionos['r']*1e-3
+                    spts = numpy.array([t, r]).T.reshape(-1, 1, 2)
+                    h = ionos['h']*1e-3
+                    rel = numpy.radians( ionos['rel'] )
+                    r = numpy.sqrt( r**2 + h**2 + 2*r*h*numpy.sin( rel ) )
+                    t = t + numpy.arcsin( h/r * numpy.cos( rel ) )
+                    epts = numpy.array([t, r]).T.reshape(-1, 1, 2)
+                    segments = numpy.concatenate([spts, epts], axis=1)
+                    lcol = LineCollection( segments, zorder=10,linewidths=5. )
 
-                _ = lcol.set_color('k')
-                self.aux_ax.add_collection( lcol )
+                    _ = lcol.set_color('k')
+                    self.aux_ax.add_collection( lcol )
         
 
 class RTIPlot(object):
@@ -246,23 +248,24 @@ class RTIPlot(object):
         
         if ground:
             gnd_df = self.sct_obj.get_gnd_sct_df()
-            if gnd_df.shape[0] > 0:
-                gnd_plot_df = gnd_df[ ["date", "range",\
-                            plot_param] ].pivot( "date", "range" )
-                if self.start_time is not None:
-                    gnd_plot_df = gnd_plot_df[gnd_plot_df["date"] >= self.start_time]
-                if self.end_time is not None:
-                    gnd_plot_df = gnd_plot_df[gnd_plot_df["date"] <= self.end_time]
+            if gnd_df is not None:
+                if gnd_df.shape[0] > 0:
+                    gnd_plot_df = gnd_df[ ["date", "range",\
+                                plot_param] ].pivot( "date", "range" )
+                    if self.start_time is not None:
+                        gnd_plot_df = gnd_plot_df[gnd_plot_df["date"] >= self.start_time]
+                    if self.end_time is not None:
+                        gnd_plot_df = gnd_plot_df[gnd_plot_df["date"] <= self.end_time]
 
-                gnd_time_vals = gnd_plot_df.index.values
-                gnd_range_vals = gnd_plot_df.columns.levels[1].values
-                gnd_time_cntr, gnd_rng_cntr  = numpy.meshgrid( gnd_time_vals, gnd_range_vals )
-                # Mask the nan values! pcolormesh can't handle them well!
-                gnd_pwr_vals = numpy.ma.masked_where(\
-                                numpy.isnan(gnd_plot_df[plot_param].values),\
-                                gnd_plot_df[plot_param].values)
-                gnd_rti_plot = self.ax.pcolormesh(gnd_time_cntr.T , gnd_rng_cntr.T, gnd_pwr_vals,\
-                                        cmap=self.cmap, vmin=vmin,vmax=vmax)
+                    gnd_time_vals = gnd_plot_df.index.values
+                    gnd_range_vals = gnd_plot_df.columns.levels[1].values
+                    gnd_time_cntr, gnd_rng_cntr  = numpy.meshgrid( gnd_time_vals, gnd_range_vals )
+                    # Mask the nan values! pcolormesh can't handle them well!
+                    gnd_pwr_vals = numpy.ma.masked_where(\
+                                    numpy.isnan(gnd_plot_df[plot_param].values),\
+                                    gnd_plot_df[plot_param].values)
+                    gnd_rti_plot = self.ax.pcolormesh(gnd_time_cntr.T , gnd_rng_cntr.T, gnd_pwr_vals,\
+                                            cmap=self.cmap, vmin=vmin,vmax=vmax)
             else:
                 gnd_rti_plot = None
                 print("No ground scatter identified!")
