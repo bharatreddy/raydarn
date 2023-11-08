@@ -94,7 +94,10 @@ class RayPathPlot(object):
         """
         mappable = self.edens_im
         fig1 = self.ax1.get_figure()
-        divider = SubplotDivider(fig1, *self.ax1.get_geometry(), aspect=True)
+
+        new_geom_type = self.ax1.get_geometry()[0]*100+self.ax1.get_geometry()[1]*10+self.ax1.get_geometry()[2]
+        print("geom test-->", new_geom_type, self.ax1.get_geometry())
+        divider = SubplotDivider(fig1, new_geom_type,aspect=True) #*self.ax1.get_geometry(), 111
 
         # axes for colorbar
         self.cbax = Axes(fig1, divider.get_position())
@@ -125,6 +128,7 @@ class RayPathPlot(object):
         Plot background electron densities
         """
         self.rto.read_edens()
+        print(self.rto.ionos.edens.keys())
         edenstht = self.rto.ionos.edens[self.plot_time][self.plot_beam]['th']
         edensArr = self.rto.ionos.edens[self.plot_time][self.plot_beam]['nel']
         X, Y = numpy.meshgrid(edenstht, self.ax1.Re + numpy.linspace(60,560,250))

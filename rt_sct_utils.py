@@ -19,8 +19,8 @@ class RT_SCT(object):
         self.rt_obj = rt_obj
         self.rt_obj.read_scatter()
         self.max_gates = max_gates
-        self.ranges = 180 + 45*numpy.arange(max_gates+1,dtype=numpy.int)
-        self.pd_cut_ranges = 180 + 45*numpy.arange(max_gates+2,dtype=numpy.int)
+        self.ranges = 180 + 45*numpy.arange(max_gates+1,dtype=int)
+        self.pd_cut_ranges = 180 + 45*numpy.arange(max_gates+2,dtype=int)
         
     def get_gnd_sct_df(self):
         """
@@ -77,7 +77,7 @@ class RT_SCT(object):
                                         labels=self.ranges
                                         )
                 _hop_bin_df = _hop_el_df.groupby(['binned']).mean().fillna(-1)
-                _gates = list(numpy.arange(self.max_gates+1,dtype=numpy.int))
+                _gates = list(numpy.arange(self.max_gates+1,dtype=int))
                 _dates = [_dt for x in range(len(list(bins)))]
                 _azims = [_az for x in range(len(list(bins)))]
                 _elevs = [_hop_bin_df.loc[x]['ele'] for x in bins]
@@ -192,7 +192,7 @@ class RT_SCT(object):
 
             max_gates = 75
             grps = iono_sct_df.groupby(["date", "azim"])
-            ranges = 180 + 45*numpy.arange(75+1,dtype=numpy.int)
+            ranges = 180 + 45*numpy.arange(75+1,dtype=int)
             addtnl_range = numpy.max(ranges) + 45
             for _d, _az in list(grps.indices.keys()):
                 sel_df = iono_sct_df[ (iono_sct_df["date"] == _d) & (iono_sct_df["azim"] == _az) ]
@@ -216,7 +216,7 @@ class RT_SCT(object):
                 # a histogram. So When converting to a DF we'll
                 # need an additional element in the range!
                 
-                _gates = list(numpy.arange(1,self.max_gates+1,dtype=numpy.int))# 
+                _gates = list(numpy.arange(1,self.max_gates+1,dtype=int))# 
                 _dates = [_d for x in range(lag_power.shape[0])]
                 _ranges = list(self.ranges[:-1])
                 _azims = [_az for x in range(len(list(bins)))]

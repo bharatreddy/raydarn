@@ -219,10 +219,12 @@ class RtRun(object):
             f.write( "{:8d}  Year (yyyy)\n".format( self.time[0].year ) )
             f.write( "{:8d}  Month and day (mmdd)\n".format( self.time[0].month*100 + self.time[0].day ) )
             tt = self.time[0].hour + self.time[0].minute/60.
+            # print("tt1-->", tt)
             tt += 25.
             f.write( "{:8.2f}  hour (add 25 for UT) (begin)\n".format( tt ) )
             tt = self.time[1].hour + self.time[1].minute/60.
-            tt += (self.time[1].day - self.time[0].day) * 24.
+            tt += (self.time[1].timetuple().tm_yday - self.time[0].timetuple().tm_yday) * 24.
+            # print("tt2-->", self.time[1].timetuple().tm_yday, self.time[0].timetuple().tm_yday, tt)
             tt += 25.
             f.write( "{:8.2f}  hour (add 25 for UT) (end)\n".format( tt ) )
             f.write( "{:8.2f}  hour (step)\n".format( self.dTime ) )
